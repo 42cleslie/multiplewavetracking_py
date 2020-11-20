@@ -212,7 +212,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "i:l")
     except getopt.GetoptError:
-        print ("usage: mwt.py -i <inputfile>")
+        print ("usage: mwt.py -i <inputfile> [-l]")
         sys.exit(2)
     for opt, arg in opts:
         if opt == ("-i"):
