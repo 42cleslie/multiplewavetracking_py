@@ -34,6 +34,7 @@ import mwt_detection
 import mwt_preprocessing
 import mwt_tracking
 import mwt_io
+import mwt_label
 
 
 ## ========================================================
@@ -65,7 +66,7 @@ def status_update(frame_number, tot_frames):
         print ("End of video reached successfully.")
 
 
-def analyze(video, write_output=True):
+def analyze(video, write_output=True, label=False):
     """Main routine for analyzing nearshore wave videos. Overlays
     detected waves onto orginal frames and writes to a new video.
     Returns a log with detected wave attrbutes, frame by frame.
@@ -89,6 +90,7 @@ def analyze(video, write_output=True):
     # Initialize frame counters.
     frame_num = 1
     num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = int(video.get(cv2.CAP_PROP_FPS))
 
     # If an output video is to be made:
     if write_output is True:
@@ -110,16 +112,19 @@ def analyze(video, write_output=True):
 
         # Preprocess frames.
         analysis_frame = mwt_preprocessing.preprocess(original_frame)
-
+        
         # Detect all sections.
         sections = mwt_detection.detect_sections(analysis_frame,
-                                                 frame_num)
+                                                 frame_num,
+                                                 original_frame)
 
         # Track all waves in tracked_waves.
         mwt_tracking.track(tracked_waves,
                            analysis_frame,
                            frame_num,
-                           num_frames)
+                           num_frames,
+                           original_frame)
+        
 
         # Write tracked wave stats to wave_log.
         for wave in tracked_waves:
@@ -133,7 +138,11 @@ def analyze(video, write_output=True):
                                  if wave.death is not None
                                  and wave.recognized is True]
         recognized_waves.extend(dead_recognized_waves)
-        
+
+        # Label the dead waves, if label flag was specified
+        if label:
+            mwt_label.label(dead_recognized_waves, fps, dead=True)
+
         tracked_waves = [wave for wave in tracked_waves if wave.death is None]
 
         # Remove duplicate waves, keeping earliest wave.
@@ -151,6 +160,9 @@ def analyze(video, write_output=True):
             if not mwt_tracking.will_be_merged(section, tracked_waves):
                 tracked_waves.append(section)
 
+        # Label all current waves if label flag was specified
+        if label:
+            mwt_label.label(tracked_waves, fps)
         # analysis_frame = cv2.cvtColor(analysis_frame, cv2.COLOR_GRAY2RGB)
 
         if write_output is True:
@@ -162,8 +174,8 @@ def analyze(video, write_output=True):
                                 1/mwt_preprocessing.RESIZE_FACTOR)
 
             # Write frame to output video.
+            # out.write(original_frame)
             #out.write(analysis_frame)
-            out.write(original_frame)
 
         # Increment the frame count.
         frame_num += 1
@@ -196,14 +208,17 @@ def main(argv):
     # The command line should have one argument-
     # the name of the videofile.
     inputfile = ''
+    label = False
     try:
-        opts, args = getopt.getopt(argv, "i:")
+        opts, args = getopt.getopt(argv, "i:l")
     except getopt.GetoptError:
-        print ("usage: mwt.py -i <inputfile>")
+        print ("usage: mwt.py -i <inputfile> [-l]")
         sys.exit(2)
     for opt, arg in opts:
         if opt == ("-i"):
             inputfile = arg
+        if opt == ("-l"):
+            label = True
 
     # Read video.
     print ("Checking video from", inputfile)
@@ -216,7 +231,8 @@ def main(argv):
     # Get a wave log, list of recognized waves, and program performance
     # from analyze, as well as create a visualization video.
     recognized_waves, wave_log, program_speed = analyze(inputvideo,
-                                                        write_output=True)
+                                                        write_output=True,
+                                                        label=label)
 
     # Write the wave log to csv.
     mwt_io.write_log(wave_log, output_format="json")

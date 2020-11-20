@@ -21,6 +21,8 @@ import math
 
 import cv2
 
+import copy
+
 from mwt_objects import Section
 
 # Boolean flag to filter blobs by area:
@@ -125,7 +127,7 @@ def keep_contour(contour,
 ## ========================================================
 
 
-def detect_sections(frame, frame_number):
+def detect_sections(frame, frame_number, original_frame):
     """Finds sections that meet the user-defined criteria.
 
     Args:
@@ -152,8 +154,9 @@ def detect_sections(frame, frame_number):
             continue
 
         # If contour passes thresholds, convert it to a Section.
-        section = Section(points=contour, birth=frame_number)
-
+        section = Section(points=contour, birth=frame_number,
+                          frame=original_frame)
+        
         # 3. Add the section to sections list.
         sections.append(section)
 

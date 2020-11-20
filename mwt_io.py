@@ -11,13 +11,14 @@
 analysis.
 """
 from __future__ import division
-
+import math 
 import os
 import csv
 import json
-
+import mwt_preprocessing
 import numpy as np
 import cv2
+import copy
 
 # We are going to dump our output in a folder in the same directory.
 OUTPUT_DIR = "output"
@@ -61,7 +62,7 @@ def create_video_writer(input_video):
                           fourcc,
                           fps,
                           (int(original_width), int(original_height)),
-                          isColor=True)
+                          True)
 
     return out
 
@@ -158,6 +159,30 @@ def write_report(waves, performance):
             text_file.write("Max Displacement: {}, Max Mass: {}\n"
                             .format(wave.max_displacement, wave.max_mass))
 
+def scale_up_rect(rect):
+    # find the slope between bottom left and top right
+    m_diag_1 = (rect[2][1] - rect[0][1]) / (rect[2][0] - rect[0][0])
+    # find slope between top left and bottom right
+    m_diag_2 = (rect[1][1] - rect[3][1]) / (rect[1][0] - rect[3][0])
+
+    delta_x = (rect[3][0] - rect[1][0]) * 0.25
+    delta_y = (rect[0][1] - rect[1][1]) * 0.75
+
+    new_rect = copy.deepcopy(rect)
+    # use some math to figure out how far down the line we need to 'walk'
+    new_rect[0][0] -= delta_x/math.sqrt(1 + m_diag_1**2)
+    new_rect[0][1] += m_diag_1 * (new_rect[0][0] - rect[0][0]) + delta_y
+
+    new_rect[1][0] -= delta_x/math.sqrt(1 + m_diag_2**2)
+    new_rect[1][1] += m_diag_2 * (new_rect[1][0] - rect[1][0]) - delta_y
+
+    new_rect[2][0] += delta_x/math.sqrt(1 + m_diag_1**2)
+    new_rect[2][1] += m_diag_1 * (new_rect[2][0] - rect[2][0]) - delta_y
+
+    new_rect[3][0] += delta_x/math.sqrt(1 + m_diag_2**2)
+    new_rect[3][1] += m_diag_2 * (new_rect[3][0] - rect[3][0]) + delta_y
+    
+    return new_rect
 
 def draw(waves, frame, resize_factor):
     """Simple function to draw on a frame for output.  Draws bounding
@@ -176,6 +201,7 @@ def draw(waves, frame, resize_factor):
     """
     # Iterate through a list of waves.
 
+    drawn = False
     for wave in waves:
         
         # For drawing circles on detected features
@@ -196,33 +222,42 @@ def draw(waves, frame, resize_factor):
                         .format(wave.mass, wave.displacement))
             
             if len(wave.centroid_vec) > 20:
+                drawn = True
                 # Draw Bounding Boxes:
                 # Get boundingbox coors from wave objects and resize.
-                """
+                
                 rect = wave.boundingbox_coors
-                rect[:] = [resize_factor*rect[i] for i in range(4)]
-                frame = cv2.drawContours(frame, [rect], 0, drawing_color, 2)"""
+                # [[bottom left], [top left], [top right], [bottom right]]
+                # Each one is a tuple of (x,y) from the top left
+                 
+                scale_factor = 0.25
+                rect[:] = [(resize_factor)*rect[i] for i in range(4)]
+                new_rect = scale_up_rect(rect)
+                
+                drawing_color = (0,255,0)
+                frame = cv2.drawContours(frame, [rect], 0, drawing_color, 2)
+                drawing_color = (0,0,255)
+                frame = cv2.drawContours(frame, [new_rect], 0, drawing_color, 2)
 
                 # Use moving averages of wave centroid for stat locations
-                moving_x = np.mean([wave.centroid_vec[-k][0]
-                                    for k
-                                    in range(1, min(20, 1+len(wave.centroid_vec)))])
-                moving_y = np.mean([wave.centroid_vec[-k][1]
-                                    for k
-                                    in range(1, min(20, 1+len(wave.centroid_vec)))])
+                # moving_x = np.mean([wave.centroid_vec[-k][0]
+                #                     for k
+                #                     in range(1, min(20, 1+len(wave.centroid_vec)))])
+                # moving_y = np.mean([wave.centroid_vec[-k][1]
+                #                     for k
+                #                     in range(1, min(20, 1+len(wave.centroid_vec)))])
                 
-                # Draw wave stats on each wave.
-                for i, j in enumerate(text.split('\n')):
-                    frame = cv2.putText(
-                                    frame,
-                                    text=j,
-                                    org=(int(resize_factor*moving_x),
-                                         int(resize_factor*moving_y)
-                                            +(50 + i*45)),
-                                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                    fontScale=1.5,
-                                    color=drawing_color,
-                                    thickness=3,
-                                    lineType=cv2.LINE_AA)
-
+                # # Draw wave stats on each wave.
+                # for i, j in enumerate(text.split('\n')):
+                #     frame = cv2.putText(
+                #                     frame,
+                #                     text=j,
+                #                     org=(int(resize_factor*moving_x),
+                #                          int(resize_factor*moving_y)
+                #                             +(50 + i*45)),
+                #                     fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                #                     fontScale=1.5,
+                #                     color=drawing_color,
+                #                     thickness=3,
+                #                     lineType=cv2.LINE_AA)
     return frame
