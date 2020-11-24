@@ -18,6 +18,8 @@
 from __future__ import division
 
 import cv2
+import math
+import numpy as np
 
 # Resize factor (downsize) for analysis:
 RESIZE_FACTOR = 0.25
@@ -45,6 +47,34 @@ mask = cv2.bgsegm.createBackgroundSubtractorMOG(
 kernel = cv2.getStructuringElement(cv2.MORPH_RECT,
                                    (MORPH_KERN_SIZE, MORPH_KERN_SIZE))
 
+
+def euc(p1, p2):
+    return math.sqrt((p1[1]-p2[1])**2 + (p1[0]-p2[0])**2)
+
+
+def rotate(box, img):
+    """box is the four corner of the rectangle we wish to rotate in the order
+    of bottom left top left top right bottom right."""
+    """All we need to do now is to crop the black part (end of frame) 
+    from the image. Rotate is working as is the display portion"""
+    
+    
+    #edit this to correctly reflect width and height"
+    box[:] = [(1/RESIZE_FACTOR)*box[i] for i in range(4)]
+    
+    width = int(euc(box[1], box[2]))
+    height = int(euc(box[0], box[1]))
+
+    src_pts = box.astype("float32")
+    dst_pts = np.array([[0, height-1],
+                        [0, 0],
+                        [width-1, 0],
+                        [width-1, height-1]], dtype="float32")
+    
+    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+
+    warped = cv2.warpPerspective(img, M, (width, height))
+    return warped
 
 def _resize(frame):
     """Resizing function utilizing OpenCV.

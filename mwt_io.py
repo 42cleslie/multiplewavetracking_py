@@ -184,33 +184,6 @@ def scale_up_rect(rect):
     
     return new_rect
 
-def euc(p1, p2):
-    return math.sqrt((p1[1]-p2[1])**2 + (p1[0]-p2[0])**2)
-
-
-def rotate(box, img):
-    """box is the four corner of the rectangle we wish to rotate in the order
-    of bottom left top left top right bottom right."""
-    """All we need to do now is to crop the black part (end of frame) 
-    from the image. Rotate is working as is the display portion"""
-    
-    
-    #edit this to correctly reflect width and height"
-    width = int(euc(box[1], box[2]))
-    height = int(euc(box[0], box[1]))
-
-    src_pts = box.astype("float32")
-    dst_pts = np.array([[0, height-1],
-                        [0, 0],
-                        [width-1, 0],
-                        [width-1, height-1]], dtype="float32")
-    
-    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
-
-    warped = cv2.warpPerspective(img, M, (width, height))
-    cv2.waitKey(0)
-    return warped
-
 def draw(waves, frame, resize_factor):
     """Simple function to draw on a frame for output.  Draws bounding
     boxes in accordance with wave.boundingbox_coors attribute, and draws
@@ -259,21 +232,14 @@ def draw(waves, frame, resize_factor):
                  
                 scale_factor = 0.25
                 rect[:] = [(resize_factor)*rect[i] for i in range(4)]
-                new_rect = scale_up_rect(rect)
+                #new_rect = scale_up_rect(rect)
                 
                 #this section is the added area to display the new bounding
                 #box rotated so we can in the near future rate it
-                wavedisplay = rotate(new_rect, frame)
-                cv2.imshow('rotated', wavedisplay)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
-
                 #continuing with the regularly scheduled news of total frame
                 
                 drawing_color = (0,255,0)
                 frame = cv2.drawContours(frame, [rect], 0, drawing_color, 2)
-                drawing_color = (0,0,255)
-                frame = cv2.drawContours(frame, [new_rect], 0, drawing_color, 2)
 
                 # Use moving averages of wave centroid for stat locations
                 # moving_x = np.mean([wave.centroid_vec[-k][0]
