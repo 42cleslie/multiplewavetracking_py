@@ -195,9 +195,8 @@ class Section(object):
         self.boundingbox_coors = boundingbox_coors
 
     def update_frame_data(self, frame):
-        if self.boundingbox_coors is None:
-            print("Uh oh...")
-        self.frame_data.append(mwt_preprocessing.rotate(self.boundingbox_coors, frame))
+        if self.boundingbox_coors is not None:
+            self.frame_data.append(mwt_preprocessing.rotate(self.boundingbox_coors, frame))
 
     def update_displacement(self):
         """Evaluates orthogonal displacement compared to original axis.
