@@ -23,11 +23,6 @@ SEARCH_REGION_BUFFER = 15
 # Length of Deque to keep track of displacement of the wave.
 TRACKING_HISTORY = 21
 
-# Width of frame in analysis steps (not original width):
-ANALYSIS_FRAME_WIDTH = 320
-# Height of frame in analysis steps (not original height):
-ANALYSIS_FRAME_HEIGHT = 180
-
 # The minimum orthogonal displacement to be considered an actual wave:
 DISPLACEMENT_THRESHOLD = 10
 # The minimum mass to be considered an actual wave:
@@ -50,6 +45,12 @@ class Section(object):
         self.name = _generate_name()
         self.points = points
         self.birth = birth
+
+        # Width of frame in analysis steps (not original width):
+        self.ANALYSIS_FRAME_WIDTH = int(frame.shape[1] / 4)
+        # Height of frame in analysis steps (not original height):
+        self.ANALYSIS_FRAME_HEIGHT = int(frame.shape[0] / 4)
+
         self.axis_angle = GLOBAL_WAVE_AXIS
         self.centroid = _get_centroid(self.points)
         self.centroid_vec = deque([self.centroid],
@@ -59,7 +60,7 @@ class Section(object):
         self.searchroi_coors = _get_searchroi_coors(self.centroid,
                                                     self.axis_angle,
                                                     SEARCH_REGION_BUFFER,
-                                                    ANALYSIS_FRAME_WIDTH)
+                                                    self.ANALYSIS_FRAME_WIDTH)
         self.boundingbox_coors = np.int0(cv2.boxPoints(
                                             cv2.minAreaRect(points)))
         self.displacement = 0
@@ -86,7 +87,7 @@ class Section(object):
         self.searchroi_coors = _get_searchroi_coors(self.centroid,
                                                     self.axis_angle,
                                                     SEARCH_REGION_BUFFER,
-                                                    ANALYSIS_FRAME_WIDTH)
+                                                    self.ANALYSIS_FRAME_WIDTH)
 
 
     def update_death(self, frame_number):
@@ -126,7 +127,7 @@ class Section(object):
         poly = np.array([rect], dtype=np.int32)
 
         # make a zero valued image on which to overlay the roi polygon
-        img = np.zeros((ANALYSIS_FRAME_HEIGHT, ANALYSIS_FRAME_WIDTH),
+        img = np.zeros((self.ANALYSIS_FRAME_HEIGHT, self.ANALYSIS_FRAME_WIDTH),
                        np.uint8)
 
         # fill the polygon roi in the zero-value image with ones
