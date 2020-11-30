@@ -35,6 +35,7 @@ import mwt_preprocessing
 import mwt_tracking
 import mwt_io
 import mwt_label
+import mwt_rate
 
 
 ## ========================================================
@@ -66,7 +67,7 @@ def status_update(frame_number, tot_frames):
         print ("End of video reached successfully.")
 
 
-def analyze(video, write_output=True, label=False):
+def analyze(video, write_output=True, label=False, rate=False):
     """Main routine for analyzing nearshore wave videos. Overlays
     detected waves onto orginal frames and writes to a new video.
     Returns a log with detected wave attrbutes, frame by frame.
@@ -75,6 +76,8 @@ def analyze(video, write_output=True, label=False):
       video: mp4 video
       write_output: boolean indicating if a video with tracking overlay
                     is to be written out.
+      label: request a user to hand rate the frames of the wave?
+      rate: use the model to generate a rating for the frames?
 
     Returns:
       recognized_waves: list of recognized wave objects
@@ -86,6 +89,7 @@ def analyze(video, write_output=True, label=False):
     tracked_waves = []
     recognized_waves = []
     wave_log = []
+    ratings = []
 
     # Initialize frame counters.
     frame_num = 1
@@ -143,6 +147,10 @@ def analyze(video, write_output=True, label=False):
         if label:
             mwt_label.label(dead_recognized_waves, fps, dead=True)
 
+        # Rate the dead waves, if rate flag was specified
+        if rate:
+            mwt_rate.rate(ratings, dead_recognized_waves, fps, dead=True)
+
         tracked_waves = [wave for wave in tracked_waves if wave.death is None]
 
         # Remove duplicate waves, keeping earliest wave.
@@ -163,6 +171,11 @@ def analyze(video, write_output=True, label=False):
         # Label all current waves if label flag was specified
         if label:
             mwt_label.label(tracked_waves, fps)
+
+        # Rate all current waves if rate flag was specified
+        if rate:
+            mwt_rate.rate(ratings, tracked_waves, fps)
+
         # analysis_frame = cv2.cvtColor(analysis_frame, cv2.COLOR_GRAY2RGB)
 
         if write_output is True:
@@ -183,6 +196,10 @@ def analyze(video, write_output=True, label=False):
     # Stop timer here and calc performance.
     time_elapsed = (time.time() - time_start)
     performance = (num_frames / time_elapsed)
+
+    if rate:
+        final_rating = mwt_rate.get_final_rating(ratings)
+        print ("Final rating for this video: {}".format(final_rating))
 
     # Provide update to user here.
     if recognized_waves is not None:
@@ -209,16 +226,22 @@ def main(argv):
     # the name of the videofile.
     inputfile = ''
     label = False
+    rate = False
     try:
-        opts, args = getopt.getopt(argv, "i:l")
+        opts, args = getopt.getopt(argv, "i:l:r")
     except getopt.GetoptError:
-        print ("usage: mwt.py -i <inputfile> [-l]")
+        print ("usage: mwt.py -i <inputfile> [-l] [-r]")
         sys.exit(2)
     for opt, arg in opts:
         if opt == ("-i"):
             inputfile = arg
         if opt == ("-l"):
             label = True
+        if opt == ("-r"):
+            rate = True
+    if label and rate:
+        print("-l and -r flags are mutually exclusive. usage: mwt.py -i <inputfile> [-l] [-r]")
+        sys.exit(2)
 
     # Read video.
     print ("Checking video from", inputfile)
@@ -232,7 +255,8 @@ def main(argv):
     # from analyze, as well as create a visualization video.
     recognized_waves, wave_log, program_speed = analyze(inputvideo,
                                                         write_output=True,
-                                                        label=label)
+                                                        label=label,
+                                                        rate=rate)
 
     # Write the wave log to csv.
     mwt_io.write_log(wave_log, output_format="json")
