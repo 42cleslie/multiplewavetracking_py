@@ -61,7 +61,7 @@ def rotate(box, img):
     
     #edit this to correctly reflect width and height"
     box[:] = [(1/RESIZE_FACTOR)*box[i] for i in range(4)]
-    
+
     width = int(euc(box[1], box[2]))
     height = int(euc(box[0], box[1]))
 
@@ -70,7 +70,7 @@ def rotate(box, img):
                         [0, 0],
                         [width-1, 0],
                         [width-1, height-1]], dtype="float32")
-    
+
     M = cv2.getPerspectiveTransform(src_pts, dst_pts)
 
     warped = cv2.warpPerspective(img, M, (width, height))
