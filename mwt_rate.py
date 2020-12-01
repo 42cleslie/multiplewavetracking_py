@@ -73,10 +73,10 @@ def get_final_rating(ratings):
     if len(ratings) < 5:
         return max(ratings)
 
-    tenth_percentile = len(ratings) / 5
+    fifth_percentile = len(ratings) / 5
 
     for r in ratings:
-        if len(top_five_per) < tenth_percentile:
+        if len(top_five_per) < fifth_percentile:
             top_five_per.append(r)
         else:
             for ttr in top_five_per:
