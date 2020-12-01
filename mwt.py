@@ -37,6 +37,8 @@ import mwt_io
 import mwt_label
 import mwt_rate
 
+from keras.models import load_model
+
 
 ## ========================================================
 
@@ -67,7 +69,7 @@ def status_update(frame_number, tot_frames):
         print ("End of video reached successfully.")
 
 
-def analyze(video, write_output=True, label=False, rate=False):
+def analyze(video, write_output=True, label=False, rate=False, model=None):
     """Main routine for analyzing nearshore wave videos. Overlays
     detected waves onto orginal frames and writes to a new video.
     Returns a log with detected wave attrbutes, frame by frame.
@@ -102,6 +104,7 @@ def analyze(video, write_output=True, label=False, rate=False):
 
     # Initiate a timer for program performance:
     time_start = time.time()
+
 
     # The main loop is here:
     while True:
@@ -145,11 +148,11 @@ def analyze(video, write_output=True, label=False, rate=False):
 
         # Label the dead waves, if label flag was specified
         if label:
-            mwt_label.label(dead_recognized_waves, fps, dead=True)
+            mwt_label.label(dead_recognized_waves, dead=True)
 
         # Rate the dead waves, if rate flag was specified
         if rate:
-            mwt_rate.rate(ratings, dead_recognized_waves, fps, dead=True)
+            mwt_rate.rate(ratings, dead_recognized_waves, model)
 
         tracked_waves = [wave for wave in tracked_waves if wave.death is None]
 
@@ -174,7 +177,7 @@ def analyze(video, write_output=True, label=False, rate=False):
 
         # Rate all current waves if rate flag was specified
         if rate:
-            mwt_rate.rate(ratings, tracked_waves, fps)
+            mwt_rate.rate(ratings, tracked_waves, model)
 
         # analysis_frame = cv2.cvtColor(analysis_frame, cv2.COLOR_GRAY2RGB)
 
@@ -227,8 +230,10 @@ def main(argv):
     inputfile = ''
     label = False
     rate = False
+    modelpath = 'models/test_model.h5'
+    model = None
     try:
-        opts, args = getopt.getopt(argv, "i:l:r")
+        opts, args = getopt.getopt(argv, "i:rl")
     except getopt.GetoptError:
         print ("usage: mwt.py -i <inputfile> [-l] [-r]")
         sys.exit(2)
@@ -239,6 +244,8 @@ def main(argv):
             label = True
         if opt == ("-r"):
             rate = True
+            if arg:
+                modelpath = arg
     if label and rate:
         print("-l and -r flags are mutually exclusive. usage: mwt.py -i <inputfile> [-l] [-r]")
         sys.exit(2)
@@ -251,12 +258,16 @@ def main(argv):
     if not inputvideo.isOpened():
         sys.exit("Could not open video.")
 
+    if rate:
+        model = load_model(modelpath, custom_objects={'SppnetLayer': mwt_rate.SppnetLayer})
+
     # Get a wave log, list of recognized waves, and program performance
     # from analyze, as well as create a visualization video.
     recognized_waves, wave_log, program_speed = analyze(inputvideo,
                                                         write_output=True,
                                                         label=label,
-                                                        rate=rate)
+                                                        rate=rate,
+                                                        model=model)
 
     # Write the wave log to csv.
     mwt_io.write_log(wave_log, output_format="json")
