@@ -20,6 +20,7 @@ from __future__ import division
 import cv2
 import math
 import numpy as np
+import copy
 
 # Resize factor (downsize) for analysis:
 RESIZE_FACTOR = 0.25
@@ -51,6 +52,31 @@ kernel = cv2.getStructuringElement(cv2.MORPH_RECT,
 def euc(p1, p2):
     return math.sqrt((p1[1]-p2[1])**2 + (p1[0]-p2[0])**2)
 
+def scale_up_rect(rect):
+    # find the slope between bottom left and top right
+    m_diag_1 = (rect[2][1] - rect[0][1]) / (rect[2][0] - rect[0][0])
+    # find slope between top left and bottom right
+    m_diag_2 = (rect[1][1] - rect[3][1]) / (rect[1][0] - rect[3][0])
+
+    delta_x = (rect[3][0] - rect[1][0]) * 0.25
+    delta_y = (rect[0][1] - rect[1][1]) * 0.75
+
+    new_rect = copy.deepcopy(rect)
+    # use some math to figure out how far down the line we need to 'walk'
+    new_rect[0][0] -= delta_x/math.sqrt(1 + m_diag_1**2)
+    new_rect[0][1] += m_diag_1 * (new_rect[0][0] - rect[0][0]) + delta_y
+
+    new_rect[1][0] -= delta_x/math.sqrt(1 + m_diag_2**2)
+    new_rect[1][1] += m_diag_2 * (new_rect[1][0] - rect[1][0]) - delta_y
+
+    new_rect[2][0] += delta_x/math.sqrt(1 + m_diag_1**2)
+    new_rect[2][1] += m_diag_1 * (new_rect[2][0] - rect[2][0]) - delta_y
+
+    new_rect[3][0] += delta_x/math.sqrt(1 + m_diag_2**2)
+    new_rect[3][1] += m_diag_2 * (new_rect[3][0] - rect[3][0]) + delta_y
+    
+    return new_rect
+
 
 def rotate(box, img):
     """box is the four corner of the rectangle we wish to rotate in the order
@@ -61,6 +87,8 @@ def rotate(box, img):
     
     #edit this to correctly reflect width and height"
     box[:] = [(1/RESIZE_FACTOR)*box[i] for i in range(4)]
+
+    box = scale_up_rect(box)
 
     width = int(euc(box[1], box[2]))
     height = int(euc(box[0], box[1]))

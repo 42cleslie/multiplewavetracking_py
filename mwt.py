@@ -148,7 +148,7 @@ def analyze(video, write_output=True, label=False, rate=False, model=None):
 
         # Label the dead waves, if label flag was specified
         if label:
-            mwt_label.label(dead_recognized_waves, dead=True)
+            mwt_label.label(dead_recognized_waves, fps, dead=True)
 
         # Rate the dead waves, if rate flag was specified
         if rate:
